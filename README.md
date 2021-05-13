@@ -1,6 +1,6 @@
 # Conflict-Free Replicated Data Types Based on Redis
 
-**This repo is used solely for anonymous paper review. Some links in readme.md are removed deliberately.**
+**`This repo is used solely for anonymous paper review. Some links in readme.md are removed deliberately.`**
 
 Several Conflict-Free Replicated Data Types (CRDTs) implemented based on Redis(6.0.5).
 
