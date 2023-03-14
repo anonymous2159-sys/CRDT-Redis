@@ -163,6 +163,13 @@ void rwflinsertCommand(client *c)
                     return;
                 }
             }
+            if (pre != NULL && (!EXISTS(pre) || pre->pos_id == NULL))
+            {
+                sds errs =
+                    sdscatfmt(sdsempty(), "-No pre element %S in the list.\r\n", c->argv[2]->ptr);
+                addReplySds(c, errs);
+                return;
+            }
             rwfle *e = GET_RWFLE_NEW(argv);
             PREPARE_PRECOND_ADD(e);
             if (e->oid == NULL)
@@ -191,7 +198,17 @@ void rwflinsertCommand(client *c)
                 leidFree(id);
             }
             else
+            {
+                if (strcmp(c->argv[2]->ptr, "readd") != 0)
+                {
+                    sds errs = sdscatfmt(
+                        sdsempty(), "-Element %S has set its position, can only be readded.\r\n",
+                        c->argv[3]->ptr);
+                    addReplySds(c, errs);
+                    return;
+                }
                 RARGV_ADD_SDS(leidToSds(e->pos_id));
+            }
             ADD_CR_NON_RMV(e);
         CRDT_EFFECT
             vc *t = CR_GET_LAST;
@@ -200,42 +217,43 @@ void rwflinsertCommand(client *c)
             ovhd_inc(-rwfle_overhead(e));
 #endif
             removeFunc(c, e, t);
+            robj *ht = GET_LIST_HT(rargv, 1);
+            // The element is newly inserted. Initialize it anyway.
+            if (e->oid == NULL)
+            {
+                e->oid = sdsdup(c->rargv[3]->ptr);
+                e->content = sdsdup(c->rargv[4]->ptr);
+                e->pos_id = sdsToLeid(c->rargv[9]->ptr);
+                rwfle *head = getHead(ht);
+                if (head == NULL) { setHead(ht, e); }
+                else if (leid_cmp(e->pos_id, head->pos_id) < 0)
+                {
+                    setHead(ht, e);
+                    e->next = head;
+                }
+                else
+                {
+                    rwfle *pre = GET_RWFLE(rargv, 0);
+                    rwfle *p, *q;
+                    if (pre != NULL && pre->pos_id != NULL)
+                        p = pre;
+                    else
+                        p = head;
+                    q = p->next;
+                    while (q != NULL && leid_cmp(e->pos_id, q->pos_id) > 0)
+                    {
+                        p = q;
+                        q = q->next;
+                    }
+                    p->next = e;
+                    e->next = q;
+                }
+            }
+            
             int exist_tmp = EXISTS(e);
             if (addCheck((reh *)e, t))
             {
-                robj *ht = GET_LIST_HT(rargv, 1);
                 if (!exist_tmp) incrLen(ht, 1);
-                // The element is newly inserted.
-                if (e->oid == NULL)
-                {
-                    e->oid = sdsdup(c->rargv[3]->ptr);
-                    e->content = sdsdup(c->rargv[4]->ptr);
-                    e->pos_id = sdsToLeid(c->rargv[9]->ptr);
-                    rwfle *head = getHead(ht);
-                    if (head == NULL) { setHead(ht, e); }
-                    else if (leid_cmp(e->pos_id, head->pos_id) < 0)
-                    {
-                        setHead(ht, e);
-                        e->next = head;
-                    }
-                    else
-                    {
-                        rwfle *pre = GET_RWFLE(rargv, 0);
-                        rwfle *p, *q;
-                        if (pre != NULL && pre->pos_id != NULL)
-                            p = pre;
-                        else
-                            p = head;
-                        q = p->next;
-                        while (q != NULL && leid_cmp(e->pos_id, q->pos_id) > 0)
-                        {
-                            p = q;
-                            q = q->next;
-                        }
-                        p->next = e;
-                        e->next = q;
-                    }
-                }
 
 #define IN_UPDATE_NORMAL(T) \
             if (e->T##_t == NULL) e->T = T;
@@ -360,4 +378,35 @@ void rwflopcountCommand(client *c) { addReplyLongLong(c, op_count_get()); }
 
 #ifdef CRDT_OVERHEAD
 void rwfloverheadCommand(client *c) { addReplyLongLong(c, ovhd_get()); }
+#endif
+
+#ifdef CRDT_ELE_STATUS
+void rwflestatusall(client *c)
+{
+    robj *o = lookupKeyReadOrReply(c, c->argv[1], shared.emptyarray);
+    if (o == NULL || checkType(c, o, OBJ_HASH)) return;
+    rwfle *e = getHead(o);
+    int count = 0;
+    for (rwfle *tmp = e; tmp != NULL; tmp = tmp->next)
+        count++;
+    addReplyArrayLen(c, count);
+    while (e != NULL)
+    {
+        addReplyArrayLen(c, 7);
+
+        addReplyBulkSds(c, sdscatprintf(sdsempty(), "add id:%d", PID(e)));
+        addReplyBulkSds(c, sdsnew("current:"));
+        addReplyBulkSds(c, vcToSds(CURRENT(e)));
+
+        addReplyBulkCBuffer(c, e->oid, sdslen(e->oid));
+        addReplyBulkLongLong(c, e->font);
+        if (e->font_t == NULL)
+            addReplyBulkSds(c, sdsnew("null"));
+        else
+            addReplyBulkSds(c, lcToSds(e->font_t));
+        addReplyBulkSds(c, leidToSds(e->pos_id));
+
+        e = e->next;
+    }
+}
 #endif

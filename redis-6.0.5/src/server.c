@@ -1017,9 +1017,11 @@ struct redisCommand redisCommandTable[] = {
      "admin no-script ok-stale",
      0, NULL, 0, 0, 0, 0, 0, 0},
 
+#ifdef CRDT_EXPERIMENT
     {"repltest", repltestCommand, -1,
      "admin no-script ok-stale fast",
      0, NULL, 0, 0, 0, 0, 0, 0},
+#endif
 
     {"ozadd", ozaddCommand, -4,
      "write use-memory fast",
@@ -1175,6 +1177,10 @@ struct redisCommand redisCommandTable[] = {
      0, NULL, 1, 1, 1, 0, 0, 0},
 
     {"rwfzestatus", rwfzestatusCommand, 3,
+     "read-only fast",
+     0, NULL, 1, 1, 1, 0, 0, 0},
+
+     {"rwflestatusall", rwflestatusall, 2,
      "read-only fast",
      0, NULL, 1, 1, 1, 0, 0, 0},
 #endif

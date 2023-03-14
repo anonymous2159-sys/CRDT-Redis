@@ -84,9 +84,9 @@ leid *constructLeid(leid *p, leid *q, vc *t)
         }
         for (int i = p->num; i < index; i++)
         {
-            rtn->p[i].pos = (q != NULL && i < q->num) ? q->p[i].pos : 0;
-            rtn->p[i].pid = (q != NULL && i < q->num) ? q->p[i].pid : t->id;
-            rtn->p[i].count = (q != NULL && i < q->num) ? q->p[i].count : count;
+            rtn->p[i].pos = 0;
+            rtn->p[i].pid = 0;
+            rtn->p[i].count = 0;
         }
     }
     else
@@ -98,9 +98,13 @@ leid *constructLeid(leid *p, leid *q, vc *t)
             rtn->p[i].count = 0;
         }
     }
+#ifndef CRDT_ELE_STATUS
     int step = right - left - 2;
     if (step != 0) step = step < RDM_STEP ? rand() % step : rand() % RDM_STEP;
     rtn->p[index].pos = left + step + 1;
+#else
+    rtn->p[index].pos = left + 1;
+#endif
     rtn->p[index].pid = t->id;
     rtn->p[index].count = count;
     return rtn;
