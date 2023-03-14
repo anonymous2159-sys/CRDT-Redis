@@ -1,0 +1,9 @@
+states
+*.dot
+*.out
+*.old
+*.script
+CMakeLists.txt
+result.txt
+dmck_run
+*.tar.gz
