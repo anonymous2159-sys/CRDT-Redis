@@ -6,7 +6,7 @@ Several Conflict-Free Replicated Data Types (CRDTs) implemented based on Redis(6
 
 Things we do for such implementation:
 
-* Enable Redis to replicate in P2P mode.
+* Enable Redis to replicate in multi-master mode.
 * Implement the CRDT framework.
 * Implement specific CRDTs according to their algorithms.
 
@@ -89,7 +89,7 @@ The **[type]** prefix of different RPQs are:
 The operations of RPQs are:
 
 * **[type]zadd Q E V** : Add a new element *E* into the priority queue *Q* with initial value *V*.
-* **[type]zincby Q E I** : Add the increment *I* to the value of element *E* in the priority queue *Q*.
+* **[type]zincrby Q E I** : Add the increment *I* to the value of element *E* in the priority queue *Q*.
 * **[type]zrem Q E** : Remove element *E* from the priority queue *Q*.
 * **[type]zscore Q E** : Read the value of element *E* from the priority queue *Q*.
 * **[type]zmax Q** : Read the element with the largest value in the priority queue *Q*. Returns the element and its value.
@@ -106,3 +106,20 @@ The operations of Lists are:
 * **[type]linsert L prev id content font size color property** : Add a new element *id* after *prev* into the list *L*, with the content *content*, and the initial properties *font* *size* *color* and *property*(bitmap that encodes bold, italic and underline). If *prev* is "null", it means insert the element at the beginning of the list. If *prev* is "readd", it means to re-add the element that is previously added and then removed, and restore its position.
 * **[type]lupdate L id type value** : Update the *type* property with *value* for element *id* in list *L*.
 * **[type]lrem L id** : Remove element *id* from the list *L*.
+
+Note that the insert operation should always insert a unique new element with a designated position (i.e. *prev* element), or a previously added element with "readd" being its *prev*. Otherwise it is undefined behavior.
+
+This is reasonable that for collaborative text editing, the newly inserted element (characters, words, ...) should always be unique. And the "readd" semantics, which may be used for undo/redo scenarios, means that you have seen the element. The element has been added at least from a global perspective.
+
+## Folders Of This Repo
+
+* *redis-6.0.5* : The CRDT-Redis source code. The main part of this repo.
+* *experiment* : Simple test and experimental evaluation for CRDT-Redis.
+  * Simple config, run and test.
+  * Randomized testing.
+  * Manual MET test.
+  * Experimental evaluation of memory overhead and consistency.
+* *MET* : Model-based explorative testing for CRDT-Redis.
+* *document* : Some technical papers of CRDT-Redis.
+
+You may find more info in the *readme.md* of the corresponding folders.
